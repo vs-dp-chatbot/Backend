@@ -1,0 +1,9 @@
+.env
+/db/러닝Company
+/db/컨텐츠Company
+/db/chroma
+/db/__pycache__/
+/chatbot/__pycache__/
+*.log
+*.pyc
+*.pot
