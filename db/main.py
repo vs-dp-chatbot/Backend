@@ -5,18 +5,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+SERVER_URL = os.getenv("SERVER_URL")
 
 from chromadb.utils import embedding_functions
 from chromadb import HttpClient
 
-client = HttpClient(host="43.203.123.103", port=8000)
+client = HttpClient(host=SERVER_URL, port=8001)
 openai_ef = embedding_functions.OpenAIEmbeddingFunction(
             api_key=OPENAI_API_KEY,
             model_name="text-embedding-ada-002"
         )
-print(client.list_collections())
-collection = client.create_collection(name="vs-dp-content")
-collection = client.get_collection(name="vs-dp-content", embedding_function=openai_ef)
+# print(client.list_collections())
+collection = client.create_collection(name="vs-dp-learning", metadata={"hnsw:space": "cosine"} )
+collection = client.get_collection(name="vs-dp-learning", embedding_function=openai_ef)
 print("collection.count: ", collection.count())
 
 import uuid
@@ -59,6 +60,6 @@ def process_all_csv_in_folder(folder_path):
                 print("collection.count()", collection.count())
             
 # 폴더 경로
-folder_path = '컨텐츠Company'
+folder_path = '러닝Company'
 process_all_csv_in_folder(folder_path)
 

@@ -20,17 +20,17 @@ async def answer(item: Item):
     from dotenv import load_dotenv
     load_dotenv()
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    SERVER_URL = os.getenv("SERVER_URL")
 
     import chromadb
     from langchain.vectorstores import Chroma
     from langchain.embeddings.openai import OpenAIEmbeddings
-    client = chromadb.HttpClient(host="localhost", port=8000)
+    client = chromadb.HttpClient(host=SERVER_URL, port=8001)
     embedding = OpenAIEmbeddings()
     db = Chroma(client=client, collection_name=dic[item.company], embedding_function=embedding)
     
-    # print(item.domain)
-    # if item.domain:
-    #     db.get(where={"domain":item.domain})
+    if item.domain:
+        db.get(where={"source": {"$in": [item.domain]}})
     
     from langchain.chat_models import ChatOpenAI
     chat = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.5, openai_api_key=OPENAI_API_KEY)
@@ -52,7 +52,6 @@ async def answer(item: Item):
     human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
 
     chat_prompt = ChatPromptTemplate.from_messages(
-        # [human_message_prompt]
         [system_message_prompt, human_message_prompt]
     )
 
@@ -62,34 +61,20 @@ async def answer(item: Item):
     response = response.replace("\n", "")
 
     answer = {}
-    result = []
     elements = response.split(", ")  # 문자열을 ", "를 기준으로 분리하여 리스트로 저장
     print(elements)
     for element in elements:
         print(element)
-        if item.domain:
-            retrieved_pages = db.similarity_search_with_score(
-                element,
-                k=4,
-                filter={"domain":item.domain}
-            )
-        else:
-            retrieved_pages = db.similarity_search_with_score(element, k=4)
-            
-        for p,similarity in retrieved_pages:
-            print(p.page_content, similarity)
-            result.append((p.page_content, p.metadata, similarity))
-        result.sort(key= lambda x:x[2], reverse=True)
-        
-    for page_content, metadata, similarity in result:
-        key = page_content.split('\n')[0].split(': ')[1]
-        print(os.getenv("URL") + metadata['urn'])
-        if key not in answer:
-            answer[key] = {
-                "description": page_content.split('\n')[1].split(': ')[1],
-                "name_ko": page_content.split('\n')[2].split(': ')[1],
-                "company": metadata['source'].split('\\')[0],
-                "domain": metadata['source'].split('\\')[1], 
-                "urn": os.getenv("URL") + metadata['urn'],
-            }
+        retrieved_pages = db.similarity_search(element, k=4)
+        for p in retrieved_pages:
+            key = p.page_content.split('\n')[0].split(': ')[1]
+            print(key)
+            if key not in answer:
+                answer[key] = {
+                    "description": p.page_content.split('\n')[1].split(': ')[1],
+                    "name_ko": p.page_content.split('\n')[2].split(': ')[1],
+                    "company": p.metadata['source'].split('\\')[0],
+                    "domain": p.metadata['source'].split('\\')[1], 
+                    "urn": os.getenv("URL") + p.metadata['urn'],
+                }
     return answer
